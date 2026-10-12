@@ -1,0 +1,372 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Expense Tracker</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 25px auto;
+      padding: 0 16px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 12px #0000000d;
+    }
+
+    .summary {
+      background: #dbeafe;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 12px;
+    }
+
+    .summary h2 {
+      margin: 8px 0;
+      color: #1d4ed8;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      font-size: 15px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .delete-btn {
+      width: auto;
+      padding: 8px 12px;
+      background: #dc2626;
+    }
+
+    .delete-btn:hover {
+      background: #b91c1c;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 450px;
+    }
+
+    th, td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+    }
+
+    th {
+      background: #eff6ff;
+    }
+
+    .empty {
+      color: #64748b;
+      text-align: center;
+      padding: 20px;
+    }
+
+    @media (max-width: 550px) {
+      form {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Student Expense Tracker</h1>
+    <p>Track your daily spending easily!</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>My Expenses</h2>
+
+      <label for="monthFilter">Select month</label>
+      <input type="month" id="monthFilter">
+
+      <div class="summary">
+        <p>Total expenses for selected month</p>
+        <h2 id="total">₹0.00</h2>
+        <p id="count">0 expenses</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Add New Expense</h2>
+
+      <form id="expenseForm">
+        <div>
+          <label for="title">Expense name</label>
+          <input id="title" type="text"
+                 placeholder="e.g. Lunch" required>
+        </div>
+
+        <div>
+          <label for="amount">Amount (₹)</label>
+          <input id="amount" type="number"
+                 min="0.01" step="0.01"
+                 placeholder="e.g. 100" required>
+        </div>
+
+        <div>
+          <label for="category">Category</label>
+          <select id="category">
+            <option>Food</option>
+            <option>Travel</option>
+            <option>Books</option>
+            <option>Shopping</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date" required>
+        </div>
+
+        <button class="full" type="submit">
+          Add Expense
+        </button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Expense History</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="expenseList"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("expenseForm");
+    const titleInput = document.getElementById("title");
+    const amountInput = document.getElementById("amount");
+    const categoryInput = document.getElementById("category");
+    const dateInput = document.getElementById("date");
+    const monthFilter = document.getElementById("monthFilter");
+    const expenseList = document.getElementById("expenseList");
+    const totalDisplay = document.getElementById("total");
+    const countDisplay = document.getElementById("count");
+
+    const today = new Date();
+    const todayString =
+      today.getFullYear() + "-" +
+      String(today.getMonth() + 1).padStart(2, "0") + "-" +
+      String(today.getDate()).padStart(2, "0");
+
+    dateInput.value = todayString;
+    monthFilter.value = todayString.slice(0, 7);
+
+    let expenses = [];
+
+    try {
+      expenses = JSON.parse(
+        localStorage.getItem("studentExpenses") || "[]"
+      );
+
+      if (!Array.isArray(expenses)) {
+        expenses = [];
+      }
+    } catch (error) {
+      expenses = [];
+    }
+
+    function saveExpenses() {
+      localStorage.setItem(
+        "studentExpenses",
+        JSON.stringify(expenses)
+      );
+    }
+
+    function renderExpenses() {
+      const selectedMonth = monthFilter.value;
+
+      const filtered = expenses.filter(function (expense) {
+        return expense.date.startsWith(selectedMonth);
+      });
+
+      expenseList.replaceChildren();
+
+      let total = 0;
+
+      filtered.forEach(function (expense) {
+        total += expense.amount;
+
+        const row = document.createElement("tr");
+
+        [
+          expense.title,
+          expense.category,
+          expense.date,
+          "₹" + expense.amount.toFixed(2)
+        ].forEach(function (value) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+
+        const actionCell = document.createElement("td");
+        const deleteButton = document.createElement("button");
+
+        deleteButton.textContent = "Delete";
+        deleteButton.className = "delete-btn";
+        deleteButton.type = "button";
+
+        deleteButton.addEventListener("click", function () {
+          expenses = expenses.filter(function (item) {
+            return item.id !== expense.id;
+          });
+
+          saveExpenses();
+          renderExpenses();
+        });
+
+        actionCell.appendChild(deleteButton);
+        row.appendChild(actionCell);
+        expenseList.appendChild(row);
+      });
+
+      if (filtered.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+
+        cell.colSpan = 5;
+        cell.className = "empty";
+        cell.textContent = "No expenses for this month.";
+
+        row.appendChild(cell);
+        expenseList.appendChild(row);
+      }
+
+      totalDisplay.textContent =
+        "₹" + total.toFixed(2);
+
+      countDisplay.textContent =
+        filtered.length + (
+          filtered.length === 1 ? " expense" : " expenses"
+        );
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const title = titleInput.value.trim();
+      const amount = Number(amountInput.value);
+      const category = categoryInput.value;
+      const date = dateInput.value;
+
+      if (
+        !title ||
+        !Number.isFinite(amount) ||
+        amount <= 0 ||
+        !date
+      ) {
+        alert("Please enter valid expense details.");
+        return;
+      }
+
+      expenses.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        title: title,
+        amount: amount,
+        category: category,
+        date: date
+      });
+
+      saveExpenses();
+      form.reset();
+
+      dateInput.value = todayString;
+      monthFilter.value = dateInput.value.slice(0, 7);
+
+      renderExpenses();
+      titleInput.focus();
+    });
+
+    monthFilter.addEventListener("change", renderExpenses);
+
+    renderExpenses();
+  </script>
+</body>
+</html>
